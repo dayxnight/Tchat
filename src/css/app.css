@@ -13,14 +13,13 @@
 
 body {
     font-family: var(--f);
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100dvh; /* Menggunakan mutlak dvh agar menyusut saat keyboard muncul */
+    width: 100vw;
     margin: 0;
     color: var(--sc);
     background-color: var(--bg);
-    overflow: hidden;
+    overflow: hidden; /* Harga mati: mengunci background halaman agar tidak bisa di-scroll paksa */
 }
-
 
 .d-none {
     display: none !important;
@@ -121,7 +120,6 @@ button:disabled {
     color: var(--sc);
 }
 .modal-actions button:active {
-    /* transform: scale(1.07); */
     border-radius: var(--rd-s);
 }
 
@@ -129,8 +127,7 @@ button:disabled {
    2. AUTHENTICATION SCREENS (Ex-auth.css)
    ========================================================================== */
 .auth-body {
-    height: 100vh;
-    height: 100dvh;
+    height: 100dvh; /* Disesuaikan ke dvh murni */
     background: linear-gradient(-45deg, var(--ph), var(--bg));
     display: flex;
     justify-content: center;
@@ -139,10 +136,9 @@ button:disabled {
 }
 
 .auth-container {
-    background: color-mix(in srgb, var(--w)50%, transparent);
-    backdrop-filter:blur(30px);
+    background: color-mix(in srgb, var(--w) 50%, transparent);
+    backdrop-filter: blur(30px);
     padding: 40px 32px;
-    /* border: 1px solid #ffffff30; */
     border-radius: var(--rd-l);
     width: 100%;
     max-width: 400px;
@@ -150,7 +146,6 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    /* box-shadow: var(--shd); */
     animation: auth-appear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -229,8 +224,7 @@ button:disabled {
    ========================================================================== */
 .chat-body {
     display: flex;
-    height: 100vh;
-    height: 100dvh;
+    height: 100dvh; /* Disesuaikan ke dvh murni */
     background-color: var(--bg);
     position: relative;
     z-index: 5;
@@ -387,15 +381,16 @@ button:disabled {
     font-weight: 600;
 }
 
-/* CHAT AREA */
+/* CHAT AREA (PENYESUAIAN OVERLAY) */
 .chat-area {
-    height: 100vh;
-    height: 100dvh;
+    height: 100dvh; /* Memastikan chat-area juga menyusut */
+    width: 100%;
     flex: 1;
     display: flex;
     flex-direction: column;
     background: var(--bg);
     position: relative;
+    overflow: hidden; /* Penting: agar layer absolute di dalamnya tidak meleber keluar */
 }
 
 .chat-header {
@@ -404,29 +399,30 @@ button:disabled {
     left: 0;
     right: 0;
     width: 100%;
-    padding:12px;
+    padding: 12px;
     background: linear-gradient(to bottom, var(--pl), transparent);
-    z-index: 10;
+    z-index: 10; /* Z-index tinggi agar selalu di atas chat messages */
     display: flex;
     gap: 12px;
     flex-direction: column;
     transition: all 0.3s ease;
 }
+
 .back-btn,
 #active-friend-header-details,
 .header-icon-btn,
 .search-bar-header input,
-.input-column{
+.input-column {
     backdrop-filter: blur(var(--blur-s));
     background: color-mix(in srgb, var(--pc) 50%, transparent);
     border: 1px solid #ffffff30;    
 }
+
 .search-bar-header {
     width: 100%;
     overflow: hidden;
     padding: 4px;
     border-radius: var(--rd-p);
-    
 }
 
 .back-btn {
@@ -445,6 +441,7 @@ button:disabled {
 .back-btn:active {
     border-radius: var(--rd-s);
 }
+
 #active-friend-header-details {
     display: flex;
     justify-content: center;
@@ -465,19 +462,22 @@ button:disabled {
     color: #fff;
     font-weight: 700;
 }
+
 #active-friend-name {
     font-weight: 800;
     font-size: 1.1rem;
     color: var(--w);
 }
 
+/* CHAT MESSAGES MENGISI LAYAR TAPI ADA DI LAYER BAWAH */
 .chat-messages {
     position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 100px 24px 90px 24px;
+    z-index: 1; /* Di belakang header dan input area */
+    padding: 100px 24px 90px 24px; /* Ruang bernafas atas dan bawah */
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -491,8 +491,7 @@ button:disabled {
     padding-top: 145px;
 }
 
-.chat-area:has(#reply-preview-bar:not([style*="display: none"]))
-    .chat-messages {
+.chat-area:has(#reply-preview-bar:not([style*="display: none"])) .chat-messages {
     padding-bottom: 145px;
 }
 
@@ -560,27 +559,30 @@ button:disabled {
     opacity: 0.6;
 }
 
+/* CHAT INPUT MENEMPEL DI BAWAH (OVERLAY) */
 .chat-input-area {
     position: absolute;
     bottom: 0px;
     left: 0px;
     right: 0px;
+    z-index: 10; /* Selalu berada di atas chat messages */
     display: flex;
     flex-direction: column;
     gap: 8px;
     width: 100%;
     background: linear-gradient(to top, var(--pl), transparent);
     padding: 12px;
-    z-index: 10;
     box-sizing: border-box;
 }
+
 .input-column {
     border-radius: var(--rd-m);
     display: flex;
     gap: 4px;
-    flex-direction:column;
+    flex-direction: column;
     padding: 4px;
 }
+
 .chat-input-row {
     display: flex;
     gap: 4px;
