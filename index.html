@@ -50,9 +50,9 @@
 
 <!-- 1. LOADING SCREEN -->
 <div id="screen-loading" class="app-screen auth-body">
-    <div class="auth-container" style="align-items: center;">
-        <div class="spinner" style="width: 40px; height: 40px; border-top-color: var(--pc);"></div>
-        <p style="margin-top: 15px; color: var(--pc); font-weight: 700;">
+    <div class="auth-container">
+        <div class="spinner spinner-lg"></div>
+        <p class="loading-text">
             Menyiapkan Tchat...
         </p>
     </div>
@@ -64,20 +64,19 @@
     <div id="auth-login-container" class="auth-container">
         <h2>Masuk Tchat</h2>
         <input type="text" id="login-username" placeholder="Username...">
-        <div style="position: relative; width: 100%;">
+        <div class="password-wrapper">
             <input type="password" id="login-password" placeholder="Password...">
-            <span id="btn-toggle-login-password" class="material-symbols-rounded"
-                style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer; opacity: 0.5;">
+            <span id="btn-toggle-login-password" class="material-symbols-rounded">
                 visibility
             </span>
         </div>
         <button id="btn-login">
             <span class="btn-text">
-                <span class="material-symbols-rounded" style="vertical-align: middle; margin-right: 8px;">login</span>LOG IN
+                <span class="material-symbols-rounded btn-icon">login</span>LOG IN
             </span>
-            <div class="spinner d-none" style="margin: 0 auto;"></div>
+            <div class="spinner d-none"></div>
         </button>
-        <p style="font-size: 0.9rem; color: var(--tm);">
+        <p class="auth-switch">
             Belum punya akun? <br> <a id="link-to-register" class="link-with-icon">Daftar sekarang</a>
         </p>
     </div>
@@ -87,20 +86,19 @@
         <h2>Daftar Baru</h2>
         <input type="text" id="reg-fullname" placeholder="Nama Lengkap...">
         <input type="text" id="reg-username" placeholder="Username unik...">
-        <div style="position: relative; width: 100%;">
+        <div class="password-wrapper">
             <input type="password" id="reg-password" placeholder="Password...">
-            <span id="btn-toggle-reg-password" class="material-symbols-rounded"
-                style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); cursor: pointer; opacity: 0.5;">
+            <span id="btn-toggle-reg-password" class="material-symbols-rounded">
                 visibility
             </span>
         </div>
         <button id="btn-register">
             <span class="btn-text">
-                <span class="material-symbols-rounded" style="vertical-align: middle; margin-right: 8px;">person_add</span>DAFTAR
+                <span class="material-symbols-rounded btn-icon">person_add</span>DAFTAR
             </span>
-            <div class="spinner d-none" style="margin: 0 auto;"></div>
+            <div class="spinner d-none"></div>
         </button>
-        <p style="font-size: 0.9rem; color: var(--tm);">
+        <p class="auth-switch">
             Sudah punya akun? <br><a id="link-to-login" class="link-with-icon">Login disini</a>
         </p>
     </div>
@@ -111,46 +109,20 @@
     <!-- SIDEBAR -->
     <div id="chat-sidebar" class="sidebar">
         <div class="user-profile">
-            <div id="my-avatar" class="avatar">?</div>
-            <div style="flex: 1; overflow: hidden;">
-                <span id="my-fullname" style="font-weight: 800; display: block;"></span>
-                <span id="my-username" style="font-size: 0.8rem; opacity: 0.8;"></span>
+            <div id="my-avatar" class="avatar" role="button" tabindex="0" aria-label="Buka profil">?</div>
+            <div class="profile-info">
+                <span id="my-fullname"></span>
+                <span id="my-username"></span>
             </div>
-        </div>
-
-        <div class="search-box">
-            <div class="search-inner">
-                <input type="text" id="search-friend-input" placeholder="Username teman...">
-            </div>
-            <button id="btn-add-friend" class="btn-add">
-                <span class="material-symbols-rounded">person_add</span>
-            </button>
-        </div>
-
-        <div class="sidebar-title">Daftar Teman</div>
-        <div id="friend-list-container" class="friend-list">
-            <div id="friends-loading-spinner" class="d-none" style="text-align: center; padding: 20px;">
-                <div class="spinner" style="border-top-color: var(--pc); margin: 0 auto;"></div>
-            </div>
-            <div id="friends-empty-state" class="empty-state d-none">
-                <span class="material-symbols-rounded">person_search</span>
-                <p>Belum ada teman.</p>
-            </div>
-            <div id="friends-list-items" style="display: flex; flex-direction: column; gap: 8px;">
-                <!-- Friend items populated dynamically -->
-            </div>
-        </div>
-
-        <div class="sidebar-footer">
-            <div style="position: relative;">
-                <button id="btn-sidebar-menu" class="menu-trigger-btn">
-                    <span class="material-symbols-rounded">menu</span> Menu
+            <div class="menu-wrapper">
+                <button id="btn-sidebar-menu" class="menu-trigger-btn" aria-label="Menu">
+                    <span class="material-symbols-rounded">menu</span>
                 </button>
 
                 <div id="sidebar-menu" class="floating-menu">
-                    <div id="menu-edit-profile" class="menu-item">
-                        <span class="material-symbols-rounded">edit_square</span>
-                        <span>Edit Profil</span>
+                    <div id="menu-add-friend" class="menu-item">
+                        <span class="material-symbols-rounded">person_add</span>
+                        <span>Tambah Teman</span>
                     </div>
                     <div class="menu-divider"></div>
                     <div id="menu-toggle-theme" class="menu-item">
@@ -161,31 +133,41 @@
                     <div class="menu-section-title">Warna Aksen</div>
                     <div class="custom-dropdown">
                         <button id="btn-accent-dropdown" class="dropdown-trigger">
-                            <div class="color-dot" style="background-color: var(--pc)"></div>
-                            <span id="accent-dropdown-label" style="margin-left: 10px; flex: 1; text-align: left;">Pilih Warna</span>
+                            <div class="color-dot"></div>
+                            <span id="accent-dropdown-label">Pilih Warna</span>
                             <span class="material-symbols-rounded">expand_more</span>
                         </button>
 
                         <div id="accent-dropdown-list" class="dropdown-list">
                             <div class="dropdown-item" data-accent="blue">
-                                <div class="color-dot" style="background-color: #0061A4"></div>
+                                <div class="color-dot"></div>
                                 <span>Biru</span>
                             </div>
                             <div class="dropdown-item" data-accent="green">
-                                <div class="color-dot" style="background-color: #006D3B"></div>
+                                <div class="color-dot"></div>
                                 <span>Hijau</span>
                             </div>
                             <div class="dropdown-item" data-accent="red">
-                                <div class="color-dot" style="background-color: #BA1A1A"></div>
+                                <div class="color-dot"></div>
                                 <span>Merah</span>
                             </div>
                         </div>
                     </div>
-                    <div class="menu-divider"></div>
-                    <div id="menu-logout" class="menu-item logout">
-                        <span class="material-symbols-rounded">logout</span> Keluar
-                    </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="sidebar-title">Daftar Teman</div>
+        <div id="friend-list-container" class="friend-list">
+            <div id="friends-loading-spinner" class="d-none">
+                <div class="spinner"></div>
+            </div>
+            <div id="friends-empty-state" class="empty-state d-none">
+                <span class="material-symbols-rounded">person_search</span>
+                <p>Belum ada teman.</p>
+            </div>
+            <div id="friends-list-items">
+                <!-- Friend items populated dynamically -->
             </div>
         </div>
     </div>
@@ -193,30 +175,30 @@
     <!-- CHAT AREA -->
     <div id="chat-area" class="chat-area">
         <div class="chat-header">
-            <div style="display: flex; align-items: center; gap: 8px; width: 100%; flex: 1;">
+            <div class="chat-header-row">
                 <button id="btn-back-to-sidebar" class="back-btn">
                     <span class="material-symbols-rounded">arrow_back</span>
                 </button>
                 
                 <div id="active-friend-header-details" class="d-none">
                     <div id="active-friend-avatar" class="avatar">?</div>
-                    <div style="flex: 1;">
-                        <span id="active-friend-name" ></span>
-                        <span id="active-friend-search-status" class="d-none" style="font-size: 0.7rem; color: #fff; opacity: 0.8;">Mode Cari Aktif</span>
+                    <div class="friend-details-info">
+                        <span id="active-friend-name"></span>
+                        <span id="active-friend-search-status" class="d-none">Mode Cari Aktif</span>
                     </div>
                 </div>
                 
-                <div id="chat-header-actions" class="d-none" style="display: flex; gap: 8px;">
+                <div id="chat-header-actions" class="d-none">
                     <button id="btn-chat-header-menu" class="header-icon-btn">
                         <span class="material-symbols-rounded">more_vert</span>
                     </button>
                 </div>
 
-                <div id="no-active-friend-placeholder" style="color: #fff; font-weight: 700; padding: 10px;">Pilih teman untuk chat</div>
+                <div id="no-active-friend-placeholder">Pilih teman untuk chat</div>
             </div>
 
             <!-- Chat Header Menu -->
-            <div id="chat-header-menu" class="floating-menu" style="top: 70px; bottom: auto; right: 10px; left: auto; width: 220px;">
+            <div id="chat-header-menu" class="floating-menu">
                 <div id="menu-clear-chat" class="menu-item">
                     <span class="material-symbols-rounded">delete_sweep</span> Hapus Chat
                 </div>
@@ -226,10 +208,10 @@
                 </div>
                 <div class="menu-divider"></div>
                 <div class="menu-section-title">Warna Aksen</div>
-                <div class="accent-dots" style="display: flex; gap: 10px; padding: 10px;">
-                    <div class="color-dot btn-change-accent" data-accent="blue" style="background: #0061A4; width: 30px; height: 30px; cursor: pointer; border-radius: 10px;"></div>
-                    <div class="color-dot btn-change-accent" data-accent="green" style="background: #006D3B; width: 30px; height: 30px; cursor: pointer; border-radius: 10px;"></div>
-                    <div class="color-dot btn-change-accent" data-accent="red" style="background: #BA1A1A; width: 30px; height: 30px; cursor: pointer; border-radius: 10px;"></div>
+                <div class="accent-dots">
+                    <div class="color-dot btn-change-accent" data-accent="blue"></div>
+                    <div class="color-dot btn-change-accent" data-accent="green"></div>
+                    <div class="color-dot btn-change-accent" data-accent="red"></div>
                 </div>
             </div>
 
@@ -246,12 +228,17 @@
                 <h3>Tchat Messenger</h3>
                 <p>Mulai obrolan seru sekarang!</p>
             </div>
+
+            <div id="chat-search-empty-state" class="empty-state d-none">
+                <span class="material-symbols-rounded">search_off</span>
+                <p>Tidak ada pesan yang cocok.</p>
+            </div>
             
-            <div id="messages-loading-spinner" class="d-none" style="text-align: center; padding: 20px;">
-                <div class="spinner" style="border-top-color: var(--pc); margin: 0 auto;"></div>
+            <div id="messages-loading-spinner" class="d-none">
+                <div class="spinner"></div>
             </div>
 
-            <div id="messages-list-items" style="display: flex; flex-direction: column; gap: 16px; width: 100%;">
+            <div id="messages-list-items">
                 <!-- Dynamic messages populate here -->
             </div>
         </div>
@@ -260,12 +247,12 @@
         <div id="chat-input-area" class="chat-input-area d-none">
             <div class="input-column">
             <!-- Reply Preview -->
-            <div id="reply-preview-bar" class="reply-area" style="display: none;">
-                <div style="flex: 1; border-left: 3px solid var(--pc); padding-left: 10px; overflow: hidden; min-width: 0;">
-                    <span id="reply-preview-sender" style="font-size: 0.75rem; font-weight: 800; color: var(--pc); display: block;"></span>
-                    <p id="reply-preview-text" style="font-size: 0.85rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.8; min-height: 1.2em; color: var(--sc);"></p>
+            <div id="reply-preview-bar" class="reply-area d-none">
+                <div class="reply-preview-content">
+                    <span id="reply-preview-sender"></span>
+                    <p id="reply-preview-text"></p>
                 </div>
-                <button id="btn-cancel-reply" style="background: none; border: none; color: var(--sc); cursor: pointer; flex-shrink: 0; margin-left: 10px;">
+                <button id="btn-cancel-reply">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
@@ -282,7 +269,7 @@
 </div>
 
 <!-- 4. FLOATING CONTEXT MENU -->
-<div id="msg-menu-overlay" class="msg-menu-overlay d-none" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; z-index: 2000;">
+<div id="msg-menu-overlay" class="msg-menu-overlay d-none">
     <div id="msg-menu-box" class="msg-menu-box">
         <div class="reaction-row">
             <button class="reaction-btn" data-emoji="❤️">❤️</button>
@@ -302,36 +289,73 @@
     </div>
 </div>
 
-<!-- 5. PROFILE EDIT MODAL -->
+<!-- 5. PROFILE MODAL (info profil + edit nama lengkap) -->
 <div id="profile-modal" class="modal-overlay d-none">
-    <div class="modal-box">
-        <h3>Edit Profil</h3>
-        <p style="font-size: 0.9rem; color: var(--tm); margin-bottom: 20px;">Anda hanya dapat mengubah nama lengkap Anda.</p>
-        <div style="text-align: left; margin-bottom: 20px;">
-            <label style="display: block; font-size: 0.8rem; font-weight: 800; color: var(--pc); margin-bottom: 8px; margin-left: 12px;">Nama Lengkap</label>
-            <input type="text" id="edit-profile-fullname-input" placeholder="Masukkan nama lengkap...">
+    <div class="modal-box profile-modal-box">
+        <button id="btn-close-profile-modal" class="modal-close-btn" aria-label="Tutup">
+            <span class="material-symbols-rounded">close</span>
+        </button>
+
+        <div class="profile-header">
+            <div id="profile-modal-avatar" class="avatar profile-modal-avatar">?</div>
+            <h3 id="profile-modal-name"></h3>
+            <p id="profile-modal-username"></p>
         </div>
-        <div class="modal-actions">
-            <button id="btn-cancel-profile" class="btn-secondary">Batal</button>
-            <button id="btn-save-profile" class="btn-primary">
-                <span class="btn-text">Simpan</span>
-                <div class="spinner d-none" style="margin: 0 auto;"></div>
+
+        <div class="profile-body">
+            <div class="profile-field">
+                <label class="profile-field-label">Nama Lengkap</label>
+                <div class="fullname-edit-row">
+                    <input type="text" id="edit-profile-fullname-input" placeholder="Masukkan nama lengkap..." disabled>
+                    <button id="btn-cancel-edit-fullname" class="btn-cancel-edit d-none" aria-label="Batal edit">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                    <button id="btn-toggle-edit-fullname" class="btn-inline-edit" aria-label="Edit nama lengkap">
+                        <span class="btn-inline-edit-icon material-symbols-rounded">edit_square</span>
+                        <div class="spinner d-none"></div>
+                    </button>
+                </div>
+            </div>
+
+            <button id="btn-logout-profile" class="btn-logout-modal">
+                <span class="material-symbols-rounded">logout</span> Keluar
             </button>
         </div>
     </div>
 </div>
 
-<!-- 6. DIALOG MODAL (Alert/Confirm) -->
+<!-- 6. ADD FRIEND MODAL -->
+<div id="add-friend-modal" class="modal-overlay d-none">
+    <div class="modal-box">
+        <button id="btn-close-add-friend" class="modal-close-btn" aria-label="Tutup">
+            <span class="material-symbols-rounded">close</span>
+        </button>
+
+        <h3>Tambah Teman</h3>
+        <p class="modal-subtext">Cari teman berdasarkan username untuk mulai mengobrol.</p>
+        <div class="add-friend-row">
+            <input type="text" id="search-friend-input" placeholder="Username teman..." autocomplete="off">
+            <button id="btn-add-friend" class="btn-add" aria-label="Tambahkan teman">
+                <span class="material-symbols-rounded">person_add</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 7. DIALOG MODAL (Alert/Confirm) -->
 <div id="dialog-modal" class="modal-overlay d-none">
     <div class="modal-box">
         <h3 id="dialog-title"></h3>
-        <p id="dialog-message" style="margin-top: 10px; margin-bottom: 20px; font-weight: 600; color: var(--sc); font-size: 0.95rem;"></p>
+        <p id="dialog-message"></p>
         <div class="modal-actions">
             <button id="btn-dialog-cancel" class="btn-secondary">Batal</button>
             <button id="btn-dialog-confirm" class="btn-primary">Oke</button>
         </div>
     </div>
 </div>
+
+<!-- 8. TOAST NOTIFICATION -->
+<div id="toast" class="toast d-none"></div>
 
 <!-- JS ENTRY POINT -->
 <script type="module" src="src/js/app.js"></script>

@@ -21,6 +21,7 @@ import {
     selectFriend, 
     handleBack, 
     stopChatListener, 
+    stopFriendPreviews, 
     sendMessage, 
     clearChat, 
     deleteMessage, 
@@ -31,16 +32,19 @@ import {
 // --- Global State ---
 const state = {
     currentPage: 'loading',
-    mobview: 'sidebar',
+    // Halaman aktif antara dua halaman terpisah: 'sidebar' | 'chat'
+    view: 'sidebar',
 
     // Current User Data
     myUid: '',
     myUsername: '',
     myFullName: '',
+    tempFullName: '',
 
     // Auth Flags
     authLoading: false,
     authMode: 'login',
+    profileEditMode: false,
 
     // Friend list
     friends: [],
@@ -85,15 +89,39 @@ export function getInitials(name) {
 
 export function formatTime(iso) {
     if (!iso) return '';
-    return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+
+    const time = d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const isToday = d.toDateString() === new Date().toDateString();
+    if (isToday) return time;
+
+    // Pesan lama ikut menampilkan tanggalnya
+    const date = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    return `${date}, ${time}`;
 }
 
-export function getAvatarColor(name) {
-    if (!name) return '#6750A4';
-    const colors = ['#a2b9bc', '#b2ad7f', '#878f99', '#6b5b95', '#feb236', '#d64161', '#ff7b25', '#92a8d1', '#f7cac9', '#dec2cb', '#b5e7a0', '#86af49'];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
+// Format waktu ringkas untuk daftar teman (WhatsApp-style):
+// hari ini => jam, kemarin => "Kemarin", lebih lama => tanggal
+function formatListTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMsg = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const dayDiff = Math.round((startOfToday - startOfMsg) / 86400000);
+
+    if (dayDiff === 0) return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    if (dayDiff === 1) return 'Kemarin';
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+}
+
+// Teks preview pesan di daftar teman
+function getFriendPreview(msg, myUid) {
+    if (!msg || !msg.teks) return 'Belum ada pesan';
+    return msg.pengirimUid === myUid ? `Anda: ${msg.teks}` : msg.teks;
 }
 
 function getFilteredMessages() {
@@ -104,7 +132,26 @@ function getFilteredMessages() {
     return state.messages.filter(m => m.teks && m.teks.toLowerCase().includes(q));
 }
 
+// Membaca profil user dengan retry — menghindari race condition saat registrasi
+// (data user mungkin belum tertulis saat listener auth pertama kali terpicu).
+async function fetchUserProfile(uid) {
+    let attempts = 0;
+    while (attempts < 5) {
+        try {
+            const snapshot = await get(ref(db, 'users/' + uid));
+            if (snapshot.exists()) return snapshot.val();
+        } catch (err) {
+            console.warn("Gagal membaca profil (percobaan ke-" + (attempts + 1) + "):", err);
+        }
+        attempts++;
+        await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    return null;
+}
+
 // --- UI Rendering Callbacks (MVP View implementation) ---
+let toastTimer = null;
+
 const uiCallbacks = {
     showModal(title, message, type = 'alert', onConfirm = null) {
         state.modal.title = title;
@@ -129,6 +176,25 @@ const uiCallbacks = {
     closeModal() {
         state.modal.show = false;
         document.getElementById('dialog-modal').classList.add('d-none');
+    },
+
+    showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.remove('d-none');
+        void toast.offsetWidth; // paksa reflow agar transisi berjalan
+        toast.classList.add('show');
+
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('show');
+            // Jangan sembunyikan bila toast baru sudah muncul dalam 300ms ini
+            setTimeout(() => {
+                if (!toast.classList.contains('show')) {
+                    toast.classList.add('d-none');
+                }
+            }, 300);
+        }, 2200);
     },
 
     setCurrentPage(page) {
@@ -189,6 +255,17 @@ const uiCallbacks = {
         document.getElementById('chat-input-text').value = '';
     },
 
+    resetSearch() {
+        state.searchActive = false;
+        state.searchQuery = '';
+        document.getElementById('chat-search-bar-header').classList.add('d-none');
+        document.getElementById('active-friend-search-status').classList.add('d-none');
+        document.getElementById('search-menu-icon').textContent = 'search';
+        document.getElementById('search-menu-text').textContent = 'Cari Pesan';
+        document.getElementById('chat-search-query-input').value = '';
+        uiCallbacks.renderMessages();
+    },
+
     updateFriendsLoading(loading) {
         const spinner = document.getElementById('friends-loading-spinner');
         if (loading) {
@@ -219,28 +296,44 @@ const uiCallbacks = {
         state.friends.forEach(friend => {
             const item = document.createElement('div');
             item.className = 'friend-item';
+            item.dataset.uid = friend.uid;
             if (state.activeFriendUid === friend.uid) {
                 item.classList.add('active');
             }
 
             const avatar = document.createElement('div');
             avatar.className = 'avatar';
-            avatar.style.backgroundColor = getAvatarColor(friend.nama_lengkap);
+            avatar.style.backgroundColor = 'var(--pc)'; // Avatar mengikuti warna aksen tema
             avatar.textContent = getInitials(friend.nama_lengkap);
 
             const info = document.createElement('div');
             info.className = 'friend-info';
 
+            const top = document.createElement('div');
+            top.className = 'friend-top';
+
             const name = document.createElement('span');
             name.className = 'friend-name';
             name.textContent = friend.nama_lengkap;
 
-            const username = document.createElement('span');
-            username.className = 'friend-username';
-            username.textContent = `@${friend.username}`;
+            const time = document.createElement('span');
+            time.className = 'friend-time';
+            time.textContent = formatListTime(friend.lastMsg ? friend.lastMsg.waktu : null);
 
-            info.appendChild(name);
-            info.appendChild(username);
+            top.appendChild(name);
+            top.appendChild(time);
+
+            const bottom = document.createElement('div');
+            bottom.className = 'friend-bottom';
+
+            const preview = document.createElement('span');
+            preview.className = 'friend-preview';
+            preview.textContent = getFriendPreview(friend.lastMsg, state.myUid);
+
+            bottom.appendChild(preview);
+
+            info.appendChild(top);
+            info.appendChild(bottom);
 
             item.appendChild(avatar);
             item.appendChild(info);
@@ -251,6 +344,15 @@ const uiCallbacks = {
 
             container.appendChild(item);
         });
+    },
+
+    updateFriendPreview(uid, lastMsg) {
+        const item = document.querySelector(`.friend-item[data-uid="${uid}"]`);
+        if (!item) return;
+        const timeEl = item.querySelector('.friend-time');
+        const previewEl = item.querySelector('.friend-preview');
+        if (timeEl) timeEl.textContent = formatListTime(lastMsg ? lastMsg.waktu : null);
+        if (previewEl) previewEl.textContent = getFriendPreview(lastMsg, state.myUid);
     },
 
     async reloadFriendList() {
@@ -272,7 +374,7 @@ const uiCallbacks = {
             document.getElementById('active-friend-name').textContent = state.activeFriendName;
             
             const avatar = document.getElementById('active-friend-avatar');
-            avatar.style.backgroundColor = getAvatarColor(state.activeFriendName);
+            avatar.style.backgroundColor = 'var(--pc)'; // Mengikuti warna aksen tema
             avatar.textContent = getInitials(state.activeFriendName);
         } else {
             placeholder.classList.remove('d-none');
@@ -286,38 +388,54 @@ const uiCallbacks = {
         const sidebar = document.getElementById('chat-sidebar');
         const chatArea = document.getElementById('chat-area');
         
-        if (state.mobview === 'chat') {
-            sidebar.classList.remove('show-mobile');
-            chatArea.classList.add('show-mobile');
+        if (state.view === 'chat') {
+            sidebar.classList.remove('show');
+            chatArea.classList.add('show');
         } else {
-            sidebar.classList.add('show-mobile');
-            chatArea.classList.remove('show-mobile');
+            sidebar.classList.add('show');
+            chatArea.classList.remove('show');
         }
     },
 
     renderMessages() {
         const container = document.getElementById('messages-list-items');
+        const messagesBox = document.getElementById('chat-messages-container');
+
+        // Simpan posisi scroll agar tidak terlempar saat daftar di-render ulang
+        const wasNearBottom = !messagesBox ||
+            messagesBox.scrollHeight - messagesBox.scrollTop - messagesBox.clientHeight < 150;
+        const prevScrollTop = messagesBox ? messagesBox.scrollTop : 0;
+
         container.innerHTML = '';
 
         const emptyState = document.getElementById('chat-empty-state');
+        const searchEmpty = document.getElementById('chat-search-empty-state');
         const spinner = document.getElementById('messages-loading-spinner');
+
+        searchEmpty.classList.add('d-none');
 
         if (!state.activeFriendUid) {
             emptyState.classList.remove('d-none');
             spinner.classList.add('d-none');
-            return;
+            return wasNearBottom;
         } else {
             emptyState.classList.add('d-none');
         }
 
         if (state.loadingMessages) {
             spinner.classList.remove('d-none');
-            return;
+            return wasNearBottom;
         } else {
             spinner.classList.add('d-none');
         }
 
         const filteredMessages = getFilteredMessages();
+
+        // State kosong khusus saat pencarian aktif tanpa hasil
+        if (filteredMessages.length === 0 && state.searchQuery.trim()) {
+            searchEmpty.classList.remove('d-none');
+            return wasNearBottom;
+        }
 
         filteredMessages.forEach(msg => {
             const wrapper = document.createElement('div');
@@ -387,6 +505,16 @@ const uiCallbacks = {
             wrapper.appendChild(message);
             container.appendChild(wrapper);
         });
+
+        // Pulihkan posisi scroll bila user sedang membaca pesan lama
+        if (!wasNearBottom && messagesBox) {
+            const prevBehavior = messagesBox.style.scrollBehavior;
+            messagesBox.style.scrollBehavior = 'auto';
+            messagesBox.scrollTop = prevScrollTop;
+            messagesBox.style.scrollBehavior = prevBehavior;
+        }
+
+        return wasNearBottom;
     },
 
     updateReplyPreview() {
@@ -397,10 +525,8 @@ const uiCallbacks = {
         if (state.replyingTo) {
             replySender.textContent = `Membalas ${state.replyingTo.pengirim}`;
             replyText.textContent = state.replyingTo.teks;
-            replyBar.style.display = 'flex';
-        } else {
-            replyBar.style.display = 'none';
         }
+        replyBar.classList.toggle('d-none', !state.replyingTo);
     },
 
     closeAllMenus() {
@@ -426,24 +552,60 @@ const uiCallbacks = {
     },
 
     openProfileModal() {
+        uiCallbacks.closeAllMenus(); // Tutup menu yang mungkin masih terbuka
+        state.profileEditMode = false;
         state.tempFullName = state.myFullName;
+        document.getElementById('profile-modal-avatar').textContent = getInitials(state.myFullName);
+        document.getElementById('profile-modal-name').textContent = state.myFullName;
+        // Username bersifat tetap (untuk login) — hanya ditampilkan, tidak bisa diubah
+        document.getElementById('profile-modal-username').textContent = `@${state.myUsername}`;
         document.getElementById('edit-profile-fullname-input').value = state.tempFullName;
+        uiCallbacks.updateProfileEditMode();
         document.getElementById('profile-modal').classList.remove('d-none');
+    },
+
+    updateProfileEditMode() {
+        const input = document.getElementById('edit-profile-fullname-input');
+        const btn = document.getElementById('btn-toggle-edit-fullname');
+        const cancelBtn = document.getElementById('btn-cancel-edit-fullname');
+        const isEdit = state.profileEditMode;
+        input.disabled = !isEdit;
+        // Ikon: pensil = mode lihat, centang = mode edit
+        btn.querySelector('.btn-inline-edit-icon').textContent = isEdit ? 'check' : 'edit_square';
+        btn.setAttribute('aria-label', isEdit ? 'Simpan perubahan nama lengkap' : 'Edit nama lengkap');
+        cancelBtn.classList.toggle('d-none', !isEdit);
     },
 
     closeProfileModal() {
         document.getElementById('profile-modal').classList.add('d-none');
     },
 
+    openAddFriendModal() {
+        uiCallbacks.closeAllMenus(); // Tutup menu sidebar
+        document.getElementById('search-friend-input').value = ''; // Mulai dari bersih
+        document.getElementById('add-friend-modal').classList.remove('d-none');
+        document.getElementById('search-friend-input').focus();
+    },
+
+    closeAddFriendModal() {
+        document.getElementById('add-friend-modal').classList.add('d-none');
+    },
+
     updateProfileModalLoading(loading) {
-        const btn = document.getElementById('btn-save-profile');
+        const btn = document.getElementById('btn-toggle-edit-fullname');
+        const input = document.getElementById('edit-profile-fullname-input');
+        const cancelBtn = document.getElementById('btn-cancel-edit-fullname');
         if (loading) {
             btn.disabled = true;
-            btn.querySelector('.btn-text').classList.add('d-none');
+            input.disabled = true;
+            cancelBtn.disabled = true;
+            btn.querySelector('.btn-inline-edit-icon').classList.add('d-none');
             btn.querySelector('.spinner').classList.remove('d-none');
         } else {
             btn.disabled = false;
-            btn.querySelector('.btn-text').classList.remove('d-none');
+            input.disabled = !state.profileEditMode;
+            cancelBtn.disabled = false;
+            btn.querySelector('.btn-inline-edit-icon').classList.remove('d-none');
             btn.querySelector('.spinner').classList.add('d-none');
         }
     },
@@ -518,6 +680,11 @@ function handleLongPress(event, msg) {
     } else {
         deleteBtn.classList.add('d-none');
     }
+
+    // Sorot reaksi yang sudah terpasang pada pesan ini
+    document.querySelectorAll('.reaction-btn').forEach(btn => {
+        btn.classList.toggle('active', msg.reaksi === btn.dataset.emoji);
+    });
 
     overlay.classList.remove('d-none');
 }
@@ -609,6 +776,19 @@ function initEventListeners() {
     });
 
     // 6. Chat Page: Menus & Popups
+    // Klik ikon profil (avatar) di kiri atas sidebar membuka modal profil
+    document.getElementById('my-avatar').addEventListener('click', () => {
+        uiCallbacks.openProfileModal();
+    });
+
+    // Dukungan keyboard (Enter/Space) untuk membuka modal profil
+    document.getElementById('my-avatar').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            uiCallbacks.openProfileModal();
+        }
+    });
+
     document.getElementById('btn-sidebar-menu').addEventListener('click', (e) => {
         e.stopPropagation();
         state.menuOpen = !state.menuOpen;
@@ -620,9 +800,8 @@ function initEventListeners() {
         }
     });
 
-    document.getElementById('menu-edit-profile').addEventListener('click', () => {
-        uiCallbacks.openProfileModal();
-        uiCallbacks.closeAllMenus();
+    document.getElementById('menu-add-friend').addEventListener('click', () => {
+        uiCallbacks.openAddFriendModal();
     });
 
     document.getElementById('menu-toggle-theme').addEventListener('click', () => {
@@ -655,10 +834,6 @@ function initEventListeners() {
         });
     });
 
-    document.getElementById('menu-logout').addEventListener('click', () => {
-        handleLogout(state, uiCallbacks, { stopChatListener });
-    });
-
     // 7. Chat Header Actions
     document.getElementById('btn-back-to-sidebar').addEventListener('click', () => {
         handleBack(state, uiCallbacks);
@@ -681,25 +856,15 @@ function initEventListeners() {
 
     document.getElementById('menu-toggle-search').addEventListener('click', () => {
         state.searchActive = !state.searchActive;
-        const searchBar = document.getElementById('chat-search-bar-header');
-        const icon = document.getElementById('search-menu-icon');
-        const text = document.getElementById('search-menu-text');
-        const status = document.getElementById('active-friend-search-status');
 
         if (state.searchActive) {
-            searchBar.classList.remove('d-none');
-            status.classList.remove('d-none');
-            icon.textContent = 'search_off';
-            text.textContent = 'Batal Cari';
+            document.getElementById('chat-search-bar-header').classList.remove('d-none');
+            document.getElementById('active-friend-search-status').classList.remove('d-none');
+            document.getElementById('search-menu-icon').textContent = 'search_off';
+            document.getElementById('search-menu-text').textContent = 'Batal Cari';
             document.getElementById('chat-search-query-input').focus();
         } else {
-            searchBar.classList.add('d-none');
-            status.classList.add('d-none');
-            icon.textContent = 'search';
-            text.textContent = 'Cari Pesan';
-            document.getElementById('chat-search-query-input').value = '';
-            state.searchQuery = '';
-            uiCallbacks.renderMessages();
+            uiCallbacks.resetSearch();
         }
         uiCallbacks.closeHeaderMenu();
     });
@@ -783,6 +948,7 @@ function initEventListeners() {
     const triggerSendMessage = () => {
         const input = document.getElementById('chat-input-text');
         sendMessage(state, input.value, uiCallbacks);
+        input.focus(); // pertahankan fokus agar bisa terus mengetik
     };
 
     document.getElementById('btn-send-message').addEventListener('click', triggerSendMessage);
@@ -796,13 +962,68 @@ function initEventListeners() {
     });
 
     // 10. Profile Modals
-    document.getElementById('btn-cancel-profile').addEventListener('click', () => {
+    document.getElementById('btn-close-profile-modal').addEventListener('click', () => {
         uiCallbacks.closeProfileModal();
     });
 
-    document.getElementById('btn-save-profile').addEventListener('click', () => {
+    // Klik area gelap di luar modal profil menutupnya
+    document.getElementById('profile-modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('profile-modal')) {
+            uiCallbacks.closeProfileModal();
+        }
+    });
+
+    // Modal tambah teman: tombol tutup (X) + klik area gelap
+    document.getElementById('btn-close-add-friend').addEventListener('click', () => {
+        uiCallbacks.closeAddFriendModal();
+    });
+    document.getElementById('add-friend-modal').addEventListener('click', (e) => {
+        if (e.target === document.getElementById('add-friend-modal')) {
+            uiCallbacks.closeAddFriendModal();
+        }
+    });
+
+    // Alur simpan nama lengkap: validasi + konfirmasi sebelum menyimpan
+    const requestSaveFullName = () => {
         const val = document.getElementById('edit-profile-fullname-input').value;
-        saveProfile(state, val, uiCallbacks);
+        if (!val.trim()) {
+            uiCallbacks.showToast('Nama lengkap tidak boleh kosong.');
+            return;
+        }
+        uiCallbacks.showModal('Simpan Perubahan', 'Apakah Anda yakin ingin menyimpan perubahan nama lengkap?', 'confirm', async () => {
+            await saveProfile(state, val, uiCallbacks);
+        });
+    };
+
+    // Tombol mode edit nama lengkap: "Edit" <-> "Simpan Perubahan"
+    document.getElementById('btn-toggle-edit-fullname').addEventListener('click', () => {
+        if (!state.profileEditMode) {
+            state.profileEditMode = true;
+            uiCallbacks.updateProfileEditMode();
+            document.getElementById('edit-profile-fullname-input').focus();
+        } else {
+            requestSaveFullName();
+        }
+    });
+
+    // Enter di input nama lengkap memicu alur simpan yang sama (saat mode edit aktif)
+    document.getElementById('edit-profile-fullname-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && state.profileEditMode) {
+            e.preventDefault();
+            requestSaveFullName();
+        }
+    });
+
+    // Batal edit: keluar dari mode edit tanpa menyimpan (nilai input dikembalikan)
+    document.getElementById('btn-cancel-edit-fullname').addEventListener('click', () => {
+        state.profileEditMode = false;
+        document.getElementById('edit-profile-fullname-input').value = state.myFullName;
+        uiCallbacks.updateProfileEditMode();
+    });
+
+    // Logout dipindah ke modal profil (modal baru ditutup setelah konfirmasi)
+    document.getElementById('btn-logout-profile').addEventListener('click', () => {
+        handleLogout(state, uiCallbacks, { stopChatListener, stopFriendPreviews });
     });
 
     // 11. Click outside helper to close menus
@@ -827,6 +1048,35 @@ function initEventListeners() {
             uiCallbacks.closeHeaderMenu();
         }
     });
+
+    // 12. Tombol Escape menutup menu/modal yang sedang terbuka
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+
+        if (state.modal.show) {
+            uiCallbacks.closeModal();
+            return;
+        }
+        if (state.msgMenuOpen) {
+            uiCallbacks.closeMsgContextMenu();
+            return;
+        }
+        if (state.chatMenuOpen) {
+            uiCallbacks.closeHeaderMenu();
+            return;
+        }
+        if (state.menuOpen || state.accentMenuOpen) {
+            uiCallbacks.closeAllMenus();
+            return;
+        }
+        if (!document.getElementById('profile-modal').classList.contains('d-none')) {
+            uiCallbacks.closeProfileModal();
+            return;
+        }
+        if (!document.getElementById('add-friend-modal').classList.contains('d-none')) {
+            uiCallbacks.closeAddFriendModal();
+        }
+    });
 }
 
 // --- App Initialization ---
@@ -843,12 +1093,11 @@ function init() {
         if (user) {
             state.myUid = user.uid;
             try {
-                const snapshot = await get(ref(db, 'users/' + user.uid));
-                if (snapshot.exists()) {
-                    const data = snapshot.val();
+                const data = await fetchUserProfile(user.uid);
+                if (data) {
                     state.myUsername = data.username;
                     state.myFullName = data.nama_lengkap;
-                    
+
                     uiCallbacks.updateMyProfileUI();
                     uiCallbacks.setCurrentPage('chat');
                     uiCallbacks.renderActiveFriendHeader();
@@ -867,9 +1116,13 @@ function init() {
     });
 
     // Mobile popstate responsive handling
-    window.addEventListener('popstate', () => {
-        if (state.currentPage === 'chat' && state.mobview === 'chat') {
-            state.mobview = 'sidebar';
+    // Popstate menangani back DAN forward: baca event.state untuk tahu
+    // halaman mana yang dituju ({view:'chat'} => halaman chat).
+    window.addEventListener('popstate', (e) => {
+        if (state.currentPage !== 'chat') return;
+        const nextView = e.state && e.state.view === 'chat' ? 'chat' : 'sidebar';
+        if (state.view !== nextView) {
+            state.view = nextView;
             uiCallbacks.updateChatLayoutView();
         }
     });

@@ -16,7 +16,7 @@ body {
     height: 100dvh; /* Menggunakan mutlak dvh agar menyusut saat keyboard muncul */
     width: 100vw;
     margin: 0;
-    color: var(--sc);
+    color: var(--text);
     background-color: var(--bg);
     overflow: hidden; /* Harga mati: mengunci background halaman agar tidak bisa di-scroll paksa */
 }
@@ -33,6 +33,13 @@ body {
     border-radius: 50%;
     border-top-color: #fff;
     animation: spin 0.8s linear infinite;
+}
+
+/* Spinner besar untuk layar loading */
+.spinner-lg {
+    width: 40px;
+    height: 40px;
+    border-top-color: var(--pc);
 }
 
 @keyframes spin {
@@ -69,6 +76,7 @@ button:disabled {
     z-index: 1000;
 }
 .modal-box {
+    position: relative;
     background: color-mix(in srgb, var(--pl) 70%, transparent);
     padding: 24px;
     backdrop-filter: blur(30px);
@@ -79,22 +87,29 @@ button:disabled {
     box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
     animation: auth-appear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.modal-box h3 {
+    margin: 0 0 4px;
+}
+
 .modal-box input {
     width: 100%;
     padding: 14px 20px;
     background: color-mix(in srgb, var(--bg) 50%, transparent);
     border: 1px solid #ffffff30;
-    color: var(--sc);
+    color: var(--text);
     border-radius: var(--rd-m);
     outline: none;
     font-family: var(--f);
     font-weight: 600;
     font-size: 1rem;
     transition: all 0.2s;
-}
-.modal-box input:focus {
+}.modal-box input:focus {
     border-color: var(--pc);
     background: var(--bg);
+}
+.modal-box input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 .modal-actions {
     display: flex;
@@ -117,11 +132,95 @@ button:disabled {
 }
 .btn-secondary {
     background: var(--bg);
-    color: var(--sc);
+    color: var(--text);
 }
 .modal-actions button:active {
     border-radius: var(--rd-s);
 }
+
+/* Baris edit nama lengkap: input + tombol mode edit di sebelahnya */
+.fullname-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.fullname-edit-row input {
+    flex: 1;
+    min-width: 0;
+}
+/* Tombol toggle edit: ikon bulat (pensil <-> centang) agar input tetap lebar */
+.btn-inline-edit {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--pc) 40%, transparent);
+    border-radius: 50%;
+    cursor: pointer;
+    font-family: var(--f);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+.btn-inline-edit:active {
+    background: var(--pl);
+    border-radius: var(--rd-s);
+}
+.btn-inline-edit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Tombol batal edit (X) — hanya tampil saat mode edit aktif */
+.btn-cancel-edit {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid color-mix(in srgb, var(--pc) 40%, transparent);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+.btn-cancel-edit:active {
+    background: var(--pl);
+    border-radius: var(--rd-s);
+}
+.btn-cancel-edit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Tombol keluar di modal profil */
+.btn-logout-modal {
+    width: 100%;
+    margin-top: 8px;
+    padding: 14px;
+    background: color-mix(in srgb, #d64161 8%, transparent);
+    color: #d64161;
+    border: 1px solid color-mix(in srgb, #d64161 30%, transparent);
+    border-radius: var(--rd-m);
+    font-weight: 800;
+    cursor: pointer;
+    font-family: var(--f);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+.btn-logout-modal:active {
+    background: color-mix(in srgb, #d64161 16%, transparent);
+    border-radius: var(--rd-s);
+}
+
 
 /* ==========================================================================
    2. AUTHENTICATION SCREENS (Ex-auth.css)
@@ -171,7 +270,7 @@ button:disabled {
     padding: 16px 24px;
     background: color-mix(in srgb, var(--bg) 70%, transparent);
     border: 1px solid #ffffff30;
-    color: var(--sc);
+    color: var(--text);
     border-radius: var(--rd-p);
     outline: none;
     font-size: 1rem;
@@ -224,80 +323,229 @@ button:disabled {
    ========================================================================== */
 .chat-body {
     display: flex;
+    flex-direction: column; /* Sidebar & chat-area adalah halaman terpisah */
     height: 100dvh; /* Disesuaikan ke dvh murni */
     background-color: var(--bg);
     position: relative;
     z-index: 5;
 }
 
+/* Sidebar & chat-area: dua halaman penuh layar (mobile-first).
+   Hanya satu yang tampil pada satu waktu, dikontrol lewat kelas .show. */
 .sidebar {
-    width: 320px;
+    width: 100%;
+    flex: 1;
     background: var(--w);
-    display: flex;
+    display: none;
     flex-direction: column;
 }
 
+.sidebar.show {
+    display: flex;
+}
+
 .dark .sidebar,
-.dark .sidebar-footer,
 .dark .chat-header {
     border-color: rgba(255, 255, 255, 0.1);
 }
 
+/* Header profil pengguna di atas sidebar — kartu gradasi aksen */
 .user-profile {
-    background: var(--pc);
+    position: relative;
+    background: linear-gradient(160deg, var(--pc), var(--ph));
     padding: 12px;
     color: #fff;
     display: flex;
     align-items: center;
     gap: 12px;
     border-radius: var(--rd-p);
-    box-shadow: var(--shd);
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--pc) 30%, transparent);
+    margin: 12px 12px 0;
+}
+/* Di tema gelap aksen cenderung terang — gelapkan gradasi agar teks putih terbaca */
+.dark .user-profile {
+    background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 45%, #000), color-mix(in srgb, var(--ph) 45%, #000));
+}
+/* Kilau halus di kiri atas kartu */
+.user-profile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at 18% -30%, rgba(255, 255, 255, 0.32), transparent 55%);
+    pointer-events: none;
 }
 
 .user-profile .avatar {
+    flex-shrink: 0;
     width: 48px;
     height: 48px;
     background: rgba(255, 255, 255, 0.2);
     border-radius: 50%;
-    border: 1px solid #ffffff30;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     display: flex;
     justify-content: center;
     align-items: center;
     font-weight: 800;
     font-size: 1.2rem;
-}
-
-.search-box {
-    padding: 12px;
-    display: flex;
-    gap: 8px;
-}
-
-.search-inner {
-    flex: 1;
-    background: var(--bg);
-    border-radius: var(--rd-p);
-    padding: 4px 16px;
-    display: flex;
-    align-items: center;
-    border: 1px solid color-mix(in srgb, var(--pc) 30%, transparent);
+    cursor: pointer; /* Klik avatar membuka modal profil */
     transition: all 0.2s;
 }
 
-.search-inner:focus-within {
-    border-color: var(--pc);
-    background: var(--w);
+.user-profile .avatar:active {
+    border-radius: var(--rd-s);
 }
 
-.search-inner input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--sc);
-    padding: 10px 0;
-    width: 100%;
-    font-family: var(--f);
+/* Info pengguna (nama + username) — teks dipotong rapi saat terlalu panjang */
+.user-profile .profile-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+.user-profile #my-fullname {
+    display: block;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.user-profile #my-username {
+    display: block;
+    font-size: 0.8rem;
+    opacity: 0.85;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* Pembungkus tombol menu — posisi relatif agar menu melayang bisa diposisikan */
+.menu-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* Modal profil: header gradasi aksen + badan bersih */
+.profile-modal-box {
+    padding: 0;
+    overflow: hidden;
+    border-radius: 36px;
+    max-height: calc(100dvh - 48px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tombol tutup modal: ikon bulat di pojok kanan atas (dipakai semua modal) */
+.modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--pc) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pc) 25%, transparent);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s;
+}
+.modal-close-btn:active {
+    background: color-mix(in srgb, var(--pc) 22%, transparent);
+    border-radius: var(--rd-s);
+}
+/* Di header gradasi modal profil, tombol tutup tampil putih di atas aksen */
+.profile-modal-box .modal-close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid #ffffff30;
+    color: #fff;
+}
+.profile-modal-box .modal-close-btn:active {
+    background: rgba(255, 255, 255, 0.35);
+    border-radius: var(--rd-s);
+}
+
+.profile-header {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(160deg, var(--pc), var(--ph));
+    padding: 44px 24px 32px;
+    text-align: center;
+}
+/* Di tema gelap aksen cenderung terang — gelapkan gradasi agar teks putih terbaca */
+.dark .profile-header {
+    background: linear-gradient(160deg, color-mix(in srgb, var(--pc) 45%, #000), color-mix(in srgb, var(--ph) 45%, #000));
+}
+/* Kilau halus di bagian atas header */
+.profile-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% -20%, rgba(255, 255, 255, 0.35), transparent 60%);
+    pointer-events: none;
+}
+
+.profile-modal-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    border: 3px solid rgba(255, 255, 255, 0.6);
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin: 0 auto;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+#profile-modal-name {
+    margin: 16px 0 2px;
+    color: #fff;
+    font-size: 1.35rem;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+#profile-modal-username {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.95rem;
     font-weight: 600;
+}
+
+.profile-body {
+    padding: 24px;
+    text-align: left;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.profile-field-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin: 0 0 8px 6px;
+}
+
+/* Baris pencarian teman di modal tambah teman */
+.add-friend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.add-friend-row input {
+    flex: 1;
+    min-width: 0;
 }
 
 .btn-add {
@@ -325,7 +573,7 @@ button:disabled {
     font-size: 0.75rem;
     text-transform: uppercase;
     font-weight: 900;
-    color: var(--tm);
+    color: var(--text-dim);
     letter-spacing: 2px;
 }
 
@@ -371,14 +619,55 @@ button:disabled {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
+/* Saat item aktif (bg sama dengan aksen), avatar diberi ring agar tetap terlihat */
+.friend-item.active .avatar {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6), 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.friend-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.friend-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
 .friend-name {
+    flex: 1;
+    min-width: 0;
     font-weight: 700;
     font-size: 1rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-.friend-username {
+.friend-time {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    opacity: 0.6;
+}
+.friend-bottom {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+}
+.friend-preview {
+    width: 100%;
+    min-width: 0;
     font-size: 0.85rem;
     opacity: 0.6;
     font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* CHAT AREA (PENYESUAIAN OVERLAY) */
@@ -386,11 +675,15 @@ button:disabled {
     height: 100dvh; /* Memastikan chat-area juga menyusut */
     width: 100%;
     flex: 1;
-    display: flex;
+    display: none;
     flex-direction: column;
     background: var(--bg);
     position: relative;
     overflow: hidden; /* Penting: agar layer absolute di dalamnya tidak meleber keluar */
+}
+
+.chat-area.show {
+    display: flex;
 }
 
 .chat-header {
@@ -426,7 +719,7 @@ button:disabled {
 }
 
 .back-btn {
-    display: none;
+    display: flex; /* Selalu tampil: back menavigasi kembali ke halaman sidebar */
     color: var(--pc);
     width: 52px;
     height: 52px;
@@ -491,7 +784,7 @@ button:disabled {
     padding-top: 145px;
 }
 
-.chat-area:has(#reply-preview-bar:not([style*="display: none"])) .chat-messages {
+.chat-area:has(#reply-preview-bar:not(.d-none)) .chat-messages {
     padding-bottom: 145px;
 }
 
@@ -546,7 +839,7 @@ button:disabled {
 .message.received {
     align-self: flex-start;
     background: var(--w);
-    color: var(--sc);
+    color: var(--text);
     border-bottom-left-radius: 6px;
     box-shadow: 0 4px 15px #00000010;
 }
@@ -557,6 +850,18 @@ button:disabled {
     margin-top: 6px;
     align-self: flex-end;
     opacity: 0.6;
+}
+
+.reaction-tag {
+    font-size: 1.1rem;
+    line-height: 1.3;
+    background: color-mix(in srgb, var(--pc) 18%, transparent);
+    border-radius: var(--rd-p);
+    padding: 2px 10px;
+}
+
+.message.sent .reaction-tag {
+    background: rgba(255, 255, 255, 0.22);
 }
 
 /* CHAT INPUT MENEMPEL DI BAWAH (OVERLAY) */
@@ -620,7 +925,7 @@ button:disabled {
 }
 
 .reply-area p {
-    color: var(--sc) !important;
+    color: var(--text) !important;
     opacity: 0.8;
 }
 
@@ -631,7 +936,7 @@ button:disabled {
     border: none;
     border-radius: var(--rd-p);
     outline: none;
-    color: var(--sc);
+    color: var(--text);
     font-family: var(--f);
     font-size: 16px;
     font-weight: 600;
@@ -654,27 +959,19 @@ button:disabled {
     transition: all 0.2s ease-in-out
 }
 
-.sidebar-footer {
-    position: sticky;
-    bottom: 0;
-    padding: 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
-    background: var(--w);
-}
-
+/* Tombol menu: ikon bulat di samping profil pengguna (atas sidebar) */
 .menu-trigger-btn {
-    width: 100%;
-    padding: 12px;
-    background: var(--pc);
-    border: none;
-    border-radius: var(--rd-p);
-    color: var(--w);
-    font-weight: 800;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid #ffffff30;
+    border-radius: 50%;
+    color: #fff;
     cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px;
     transition: all 0.2s ease-in-out;
 }
 
@@ -700,6 +997,16 @@ button:disabled {
     opacity: 1;
     transform: scale(1) translateY(0);
     pointer-events: auto;
+}
+
+/* Menu sidebar kini terbuka ke bawah dari profil pengguna (kanan atas) */
+#sidebar-menu {
+    top: calc(100% + 8px);
+    bottom: auto;
+    left: auto;
+    right: 0;
+    width: 280px;
+    color: var(--text); /* Jangan warisi putih dari .user-profile; ikuti tema */
 }
 
 .menu-item {
@@ -733,7 +1040,7 @@ button:disabled {
     align-items: center;
     gap: 10px;
     cursor: pointer;
-    color: var(--sc);
+    color: var(--text);
     font-weight: 700;
 }
 
@@ -744,8 +1051,34 @@ button:disabled {
     justify-content: center;
     align-items: center;
     text-align: center;
-    color: var(--tm);
+    color: var(--text-dim);
     padding: 40px;
+}
+
+/* TOAST NOTIFICATION */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: color-mix(in srgb, var(--pl) 85%, transparent);
+    color: var(--text);
+    padding: 12px 22px;
+    border-radius: var(--rd-p);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    font-weight: 700;
+    font-size: 0.9rem;
+    z-index: 3000;
+    backdrop-filter: blur(20px);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    max-width: 90vw;
+    text-align: center;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 .header-icon-btn {
@@ -780,7 +1113,8 @@ button:disabled {
 
 .dropdown-list {
     position: absolute;
-    bottom: 100%;
+    top: calc(100% + 8px);
+    bottom: auto;
     left: 8px;
     right: 8px;
     background: var(--w);
@@ -810,7 +1144,7 @@ button:disabled {
     cursor: pointer;
     font-weight: 700;
     transition: all 0.2s;
-    color: var(--sc);
+    color: var(--text);
 }
 
 .dropdown-item:active {
@@ -840,12 +1174,12 @@ button:disabled {
     padding: 8px 16px;
     font-size: 0.7rem;
     font-weight: 900;
-    color: var(--tm);
+    color: var(--text-dim);
     text-transform: uppercase;
 }
 
 .menu-trigger-btn:active {
-    background: var(--ph);
+    background: rgba(255, 255, 255, 0.35);
     border-radius: var(--rd-s);
 }
 
@@ -876,8 +1210,35 @@ button:disabled {
     border-left-color: #fff;
 }
 
+/* Truncate nama/teks panjang di preview balasan */
+#reply-preview-sender {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--pc);
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.reply-preview-in-msg span,
+.reply-preview-in-msg p {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Context Menu Overlay */
 .msg-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    z-index: 2000;
     transition: opacity 0.2s ease;
 }
 
@@ -927,23 +1288,190 @@ button:disabled {
 .reaction-btn:active {
     transform: scale(1.4);
 }
+.reaction-btn.active {
+    transform: scale(1.3);
+    background: color-mix(in srgb, var(--pc) 22%, transparent);
+    border-radius: 50%;
+}
 
-@media (max-width: 768px) {
-    .sidebar {
-        width: 100%;
-        display: none;
-    }
-    .sidebar.show-mobile {
-        display: flex;
-    }
-    .chat-area {
-        width: 100%;
-        display: none;
-    }
-    .chat-area.show-mobile {
-        display: flex;
-    }
-    .back-btn {
-        display: flex;
-    }
+/* Layout dua halaman (sidebar & chat terpisah) kini menjadi default untuk
+   semua ukuran layar — tidak ada lagi mode desktop bersebelahan. */
+
+/* ==========================================================================
+   5. STYLE YANG DIPINDAHKAN DARI INLINE HTML KE CSS
+   ========================================================================== */
+
+/* Loading screen */
+#screen-loading .auth-container {
+    align-items: center;
+}
+.loading-text {
+    margin-top: 15px;
+    color: var(--pc);
+    font-weight: 700;
+}
+
+/* Auth: wrapper input password + tombol mata */
+.password-wrapper {
+    position: relative;
+    width: 100%;
+}
+#btn-toggle-login-password,
+#btn-toggle-reg-password {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 0.5;
+}
+.btn-icon {
+    vertical-align: middle;
+    margin-right: 8px;
+}
+.auth-container button .spinner {
+    margin: 0 auto;
+}
+.auth-switch {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+}
+
+/* Sidebar: warna aksen pada dropdown */
+.dropdown-trigger .color-dot {
+    background-color: var(--pc);
+}
+#accent-dropdown-label {
+    margin-left: 10px;
+    flex: 1;
+    text-align: left;
+}
+.dropdown-item[data-accent="blue"] .color-dot { background-color: #0061A4; }
+.dropdown-item[data-accent="green"] .color-dot { background-color: #006D3B; }
+.dropdown-item[data-accent="red"] .color-dot { background-color: #BA1A1A; }
+
+/* Spinner loading daftar teman & pesan */
+#friends-loading-spinner,
+#messages-loading-spinner {
+    text-align: center;
+    padding: 20px;
+}
+#friends-loading-spinner .spinner,
+#messages-loading-spinner .spinner {
+    border-top-color: var(--pc);
+    margin: 0 auto;
+}
+#friends-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Chat header */
+.chat-header-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    flex: 1;
+}
+.friend-details-info {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+#active-friend-search-status {
+    font-size: 0.7rem;
+    color: #fff;
+    opacity: 0.8;
+}
+#chat-header-actions {
+    display: flex;
+    gap: 8px;
+}
+#no-active-friend-placeholder {
+    color: #fff;
+    font-weight: 700;
+    padding: 10px;
+}
+#chat-header-menu {
+    top: 70px;
+    bottom: auto;
+    right: 10px;
+    left: auto;
+    width: 220px;
+}
+.accent-dots {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+}
+.btn-change-accent {
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    border-radius: 10px;
+}
+.btn-change-accent[data-accent="blue"] { background: #0061A4; }
+.btn-change-accent[data-accent="green"] { background: #006D3B; }
+.btn-change-accent[data-accent="red"] { background: #BA1A1A; }
+
+#messages-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+/* Reply preview bar */
+.reply-preview-content {
+    flex: 1;
+    border-left: 3px solid var(--pc);
+    padding-left: 10px;
+    overflow: hidden;
+    min-width: 0;
+}
+#reply-preview-text {
+    font-size: 0.85rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.8;
+    min-height: 1.2em;
+    color: var(--text);
+}
+#btn-cancel-reply {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 10px;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+}
+
+/* Modal umum */
+.modal-subtext {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin: 8px 0 20px;
+}
+#dialog-message {
+    margin-top: 10px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.95rem;
+}
+.profile-field {
+    margin-bottom: 24px;
+}
+.btn-inline-edit .spinner {
+    margin: 0 auto;
 }

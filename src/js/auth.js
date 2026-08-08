@@ -18,6 +18,12 @@ export async function handleRegister(state, regFullName, regUsername, regPasswor
     state.authLoading = true;
     uiCallbacks.updateAuthLoading(true);
     const username = regUsername.trim().toLowerCase();
+    if (!/^[a-z0-9_.]{3,20}$/.test(username)) {
+        uiCallbacks.showModal('Peringatan', 'Username hanya boleh huruf kecil, angka, titik, dan underscore (3–20 karakter).');
+        state.authLoading = false;
+        uiCallbacks.updateAuthLoading(false);
+        return;
+    }
     const email = username + dummyDomain;
 
     try {
@@ -39,9 +45,7 @@ export async function handleRegister(state, regFullName, regUsername, regPasswor
         });
         await set(ref(db, 'usernames/' + username), { uid: user.uid });
 
-        uiCallbacks.showModal('Berhasil', 'Akun berhasil dibuat! Silakan masuk.', 'alert', () => {
-            uiCallbacks.setAuthMode('login');
-        });
+        uiCallbacks.showToast('Akun berhasil dibuat! Kamu sudah masuk otomatis.');
         uiCallbacks.clearRegisterInputs();
     } catch (error) {
         uiCallbacks.showModal('Error', 'Gagal mendaftar: ' + error.message);
@@ -61,9 +65,10 @@ export async function handleLogin(state, loginUsername, loginPassword, uiCallbac
 
     try {
         await signInWithEmailAndPassword(auth, email, loginPassword);
-        uiCallbacks.showModal('Selamat Datang', 'Akhirnya sampai juga! Akun kamu udah siap digunakan nih. Enjoy ya!');
+        uiCallbacks.showToast('Selamat datang kembali di Tchat!');
         uiCallbacks.clearLoginInputs();
     } catch (error) {
+        console.error("Login gagal:", error);
         uiCallbacks.showModal('Gagal Masuk', 'Gomennasai... Kayaknya username atau password yang kamu masukin masih salah deh.');
     } finally {
         state.authLoading = false;
@@ -73,7 +78,9 @@ export async function handleLogin(state, loginUsername, loginPassword, uiCallbac
 
 export function handleLogout(state, uiCallbacks, chatCallbacks) {
     uiCallbacks.showModal('Konfirmasi Keluar', 'Apakah Anda yakin ingin keluar?', 'confirm', async () => {
+        uiCallbacks.closeProfileModal(); // Tutup modal profil sebelum keluar
         chatCallbacks.stopChatListener(); // Matikan listener sebelum logout
+        if (chatCallbacks.stopFriendPreviews) chatCallbacks.stopFriendPreviews(); // Matikan preview teman
         await signOut(auth);
         
         // Reset state
@@ -90,6 +97,7 @@ export function handleLogout(state, uiCallbacks, chatCallbacks) {
         state.replyingTo = null;
         
         uiCallbacks.setCurrentPage('auth');
+        uiCallbacks.setAuthMode('login'); // Kembalikan ke mode login setelah keluar
         uiCallbacks.renderFriendList();
         uiCallbacks.renderMessages();
         uiCallbacks.closeAllMenus();
@@ -109,7 +117,7 @@ export async function saveProfile(state, tempFullName, uiCallbacks) {
         state.myFullName = tempFullName.trim();
         uiCallbacks.updateMyProfileUI();
         uiCallbacks.closeProfileModal();
-        uiCallbacks.showModal('Berhasil', 'Profil berhasil diperbarui!');
+        uiCallbacks.showToast('Profil berhasil diperbarui!');
         // Reload friends list for other users or local lists if needed
         await uiCallbacks.reloadFriendList();
     } catch (error) {

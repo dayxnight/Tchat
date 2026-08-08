@@ -1,9 +1,10 @@
 import { db } from "./firebase-config.js";
 import { 
-    ref, set, get, push, off, onValue 
+    ref, set, get, push, off, onValue, query, orderByKey, limitToLast 
 } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
 
 let activeChatRef = null;
+let friendPreviewRefs = [];
 
 export function stopChatListener() {
     if (activeChatRef) {
@@ -11,6 +12,34 @@ export function stopChatListener() {
         off(activeChatRef);
         activeChatRef = null;
     }
+}
+
+export function stopFriendPreviews() {
+    friendPreviewRefs.forEach(p => p.off());
+    friendPreviewRefs = [];
+}
+
+// Menjaga preview pesan terakhir setiap teman tetap hidup di daftar teman
+// (mirip WhatsApp) dengan membaca hanya 1 pesan terakhir per room.
+function startFriendPreviews(state, uiCallbacks) {
+    stopFriendPreviews(); // Hindari listener ganda saat daftar dimuat ulang
+    state.friends.forEach(friend => {
+        const roomId = getRoomId(state.myUid, friend.uid);
+        const q = query(ref(db, `pesan_pribadi/${roomId}`), orderByKey(), limitToLast(1));
+        const listener = onValue(q, (snap) => {
+            let lastMsg = null;
+            snap.forEach(child => {
+                lastMsg = { ...child.val(), id: child.key };
+            });
+            friend.lastMsg = lastMsg;
+            uiCallbacks.updateFriendPreview(friend.uid, lastMsg);
+        });
+        friendPreviewRefs.push({ off: () => off(q) });
+    });
+}
+
+function getRoomId(uidA, uidB) {
+    return uidA < uidB ? `${uidA}_${uidB}` : `${uidB}_${uidA}`;
 }
 
 export async function loadFriendList(state, uiCallbacks) {
@@ -21,6 +50,7 @@ export async function loadFriendList(state, uiCallbacks) {
         if (!snapshot.exists()) {
             state.friends = [];
             uiCallbacks.renderFriendList();
+            startFriendPreviews(state, uiCallbacks);
             return;
         }
         const friendsUids = Object.keys(snapshot.val());
@@ -31,6 +61,7 @@ export async function loadFriendList(state, uiCallbacks) {
         }
         state.friends = tempFriends;
         uiCallbacks.renderFriendList();
+        startFriendPreviews(state, uiCallbacks);
     } catch (e) {
         console.error("Gagal memuat teman:", e);
     } finally {
@@ -58,8 +89,9 @@ export async function addFriend(state, searchUsername, uiCallbacks) {
         await set(ref(db, `users/${targetUid}/daftar_teman/${state.myUid}`), true);
         
         uiCallbacks.clearAddFriendInput();
+        uiCallbacks.closeAddFriendModal(); // Tutup modal agar teman baru langsung terlihat
         await loadFriendList(state, uiCallbacks);
-        uiCallbacks.showModal('Berhasil', 'Teman telah ditambahkan.');
+        uiCallbacks.showToast('Teman telah ditambahkan.');
     } catch (e) { 
         uiCallbacks.showModal('Error', e.message);
     }
@@ -68,19 +100,22 @@ export async function addFriend(state, searchUsername, uiCallbacks) {
 export function selectFriend(state, friend, uiCallbacks) {
     state.activeFriendUid = friend.uid;
     state.activeFriendName = friend.nama_lengkap;
-    
-    if (state.mobview === 'sidebar') {
+
+    // Sidebar -> chat selalu pindah halaman (pushState) karena kedua area
+    // adalah halaman terpisah penuh layar di semua ukuran layar.
+    if (state.view === 'sidebar') {
         history.pushState({view: 'chat'}, '');
-        state.mobview = 'chat';
+        state.view = 'chat';
     }
     uiCallbacks.updateChatLayoutView();
     uiCallbacks.renderActiveFriendHeader();
-    
+    uiCallbacks.resetSearch();
+
     bukaRoomChat(state, friend.uid, uiCallbacks);
 }
 
 export function handleBack(state, uiCallbacks) {
-    if (state.mobview === 'chat') {
+    if (state.view === 'chat') {
         history.back();
     }
 }
@@ -99,6 +134,7 @@ export function bukaRoomChat(state, friendUid, uiCallbacks) {
     onValue(activeChatRef, (snapshot) => {
         console.log("Snapshot diterima dari Firebase:", snapshot.exists());
         state.loadingMessages = false;
+
         if (snapshot.exists()) {
             const data = snapshot.val();
             console.log("Data pesan ditemukan:", Object.keys(data).length, "pesan");
@@ -113,8 +149,8 @@ export function bukaRoomChat(state, friendUid, uiCallbacks) {
             console.log("Tidak ada pesan di room ini.");
             state.messages = [];
         }
-        uiCallbacks.renderMessages();
-        uiCallbacks.scrollToBottom();
+        const wasNearBottom = uiCallbacks.renderMessages();
+        if (wasNearBottom) uiCallbacks.scrollToBottom();
     }, (error) => {
         console.error("Firebase error:", error);
         if (state.currentPage !== 'auth') {
@@ -143,6 +179,7 @@ export function sendMessage(state, chatInputText, uiCallbacks) {
 
     push(activeChatRef, msgData);
     uiCallbacks.clearChatInput();
+    uiCallbacks.scrollToBottom();
 }
 
 export async function clearChat(state, uiCallbacks) {
@@ -152,6 +189,8 @@ export async function clearChat(state, uiCallbacks) {
         try {
             await set(ref(db, `pesan_pribadi/${roomId}`), null);
             state.messages = [];
+            state.replyingTo = null;
+            uiCallbacks.updateReplyPreview();
             uiCallbacks.renderMessages();
             uiCallbacks.closeHeaderMenu();
         } catch (e) {
@@ -199,23 +238,28 @@ export async function addReaction(state, emoji, uiCallbacks) {
     const roomId = getCurrentRoomId(state);
     if (!state.selectedMsg || !roomId) return;
     const msgId = state.selectedMsg.id;
-    
+
+    // Baca reaksi terbaru dari state (selectedMsg bisa basi bila snapshot baru masuk)
+    const current = state.messages.find(m => m.id === msgId);
+    const currentReaction = current ? current.reaksi : state.selectedMsg.reaksi;
+
+    // Klik emoji yang sama akan menghapus reaksi (toggle off)
+    const newReaction = currentReaction === emoji ? null : emoji;
+
     try {
-        await set(ref(db, `pesan_pribadi/${roomId}/${msgId}/reaksi`), emoji);
+        await set(ref(db, `pesan_pribadi/${roomId}/${msgId}/reaksi`), newReaction);
         uiCallbacks.closeMsgContextMenu();
-        // Firebase onValue listener will handle rendering reactively, but local update just in case:
-        state.messages = state.messages.map(m => 
-            m.id === msgId ? { ...m, reaksi: emoji } : m
+        // Firebase onValue listener akan merender ulang; update lokal sebagai cadangan:
+        state.messages = state.messages.map(m =>
+            m.id === msgId ? { ...m, reaksi: newReaction } : m
         );
         uiCallbacks.renderMessages();
     } catch (e) {
-        uiCallbacks.showModal('Error', 'Gagal menambah reaksi.');
+        uiCallbacks.showModal('Error', 'Gagal mengubah reaksi.');
     }
 }
 
 export function getCurrentRoomId(state) {
     if (!state.activeFriendUid) return null;
-    return state.myUid < state.activeFriendUid 
-        ? `${state.myUid}_${state.activeFriendUid}` 
-        : `${state.activeFriendUid}_${state.myUid}`;
+    return getRoomId(state.myUid, state.activeFriendUid);
 }

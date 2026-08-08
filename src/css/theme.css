@@ -8,8 +8,10 @@
     /* Base Colors */
     --bg: #f3edf7;
     --w: #fffbfe;
-    --tm: #49454f;
-    --sc: #21005d;
+
+    /* Warna teks mengikuti aksen tema (dihitung otomatis dari --pc) */
+    --text: color-mix(in srgb, var(--pc) 30%, #17171c);
+    --text-dim: color-mix(in srgb, var(--text) 70%, transparent);
 
     /* Radius */
     --rd-l: 32px;
@@ -28,7 +30,7 @@
 }
 
 :root.dark {
-    --tm: #938f99;
-    --sc: #e6e1e5;
+    /* Teks terang di tema gelap, tetap berwarna aksen */
+    --text: color-mix(in srgb, var(--pc) 25%, #f2f2f7);
     --shd: 0 4px 24px rgba(0, 0, 0, 0.5);
 }
